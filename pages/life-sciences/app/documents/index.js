@@ -21,6 +21,7 @@ export default function DocumentsIndexPage() {
   const [items, setItems] = useState([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
 
   async function load() {
     setBusy(true);
@@ -49,9 +50,19 @@ export default function DocumentsIndexPage() {
   return (
     <div>
       <h1>Documents</h1>
+      <div style={{ fontSize: 15, margin: "10px 0 16px 0", color: "#1a3a7c", fontWeight: 600 }}>
+        SOP Note: Document records may be searched, sorted, and filtered by metadata including Document Title, Submitter, Status, and key lifecycle dates. All actions are recorded in the audit trail.
+      </div>
       <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 18, background: "white" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 14, opacity: 0.75 }}>All documents in the demo system.</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by Document Title, Submitter, Status, or Date..."
+            style={{ minWidth: 220, padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 15 }}
+            disabled={busy}
+          />
           <button
             onClick={load}
             disabled={busy}
@@ -73,31 +84,51 @@ export default function DocumentsIndexPage() {
           <div style={{ marginTop: 14, opacity: 0.8 }}>No documents found.</div>
         ) : (
           <div style={{ marginTop: 14, display: "grid", gap: 12 }}>
-            {items.map((it) => {
-              const id = it.documentId || it.id;
-              return (
-                <div key={id} style={{ border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                    <div style={{ fontWeight: 800 }}>{it.title || filenameFromItem(it)}</div>
-                    <div style={{ fontFamily: "monospace", fontSize: 12, opacity: 0.75 }}>{id}</div>
+            {items
+              .filter((it) => {
+                const id = it.documentId || it.id || "";
+                const title = (it.title || "").toLowerCase();
+                const submitter = (it.submittedBy || it.submittedByEmail || it.ownerUsername || it.ownerEmail || "").toLowerCase();
+                const status = (it.status || "").toLowerCase();
+                // Add date fields to search
+                const submittedDate = (it.submittedAtDisplay || it.submittedAt || "").toLowerCase();
+                const approvedDate = (it.approvedAtDisplay || it.approvedAt || "").toLowerCase();
+                const q = (search || "").toLowerCase();
+                return (
+                  !q ||
+                  title.includes(q) ||
+                  submitter.includes(q) ||
+                  status.includes(q) ||
+                  submittedDate.includes(q) ||
+                  approvedDate.includes(q) ||
+                  id.includes(q)
+                );
+              })
+              .map((it) => {
+                const id = it.documentId || it.id;
+                return (
+                  <div key={id} style={{ border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                      <div style={{ fontWeight: 800 }}>{it.title || filenameFromItem(it)}</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 12, opacity: 0.75 }}>{id}</div>
+                    </div>
+
+                    {it.status ? (
+                      <div style={{ marginTop: 8, opacity: 0.8, fontSize: 13 }}>Status: {it.status}</div>
+                    ) : null}
+
+                    <div style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <Link href={`/life-sciences/app/documents/${encodeURIComponent(id)}`} style={linkBtn}>
+                        View
+                      </Link>
+
+                      <Link href={`/life-sciences/app/approval/${encodeURIComponent(id)}`} style={linkBtn}>
+                        Approve / Reject
+                      </Link>
+                    </div>
                   </div>
-
-                  {it.status ? (
-                    <div style={{ marginTop: 8, opacity: 0.8, fontSize: 13 }}>Status: {it.status}</div>
-                  ) : null}
-
-                  <div style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <Link href={`/life-sciences/app/documents/${encodeURIComponent(id)}`} style={linkBtn}>
-                      View
-                    </Link>
-
-                    <Link href={`/life-sciences/app/approval/${encodeURIComponent(id)}`} style={linkBtn}>
-                      Approve / Reject
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         )}
       </div>
