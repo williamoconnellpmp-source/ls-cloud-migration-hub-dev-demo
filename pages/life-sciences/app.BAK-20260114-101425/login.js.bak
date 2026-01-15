@@ -1,0 +1,28 @@
+import { useEffect } from "react";
+import { useRouter } from "next/router";
+
+export default function VdcLoginCallback() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const { code, state, error, error_description: errDesc } = router.query;
+    const target = new URL("/vdc/", window.location.origin);
+    if (code) target.searchParams.set("code", code);
+    if (state) target.searchParams.set("state", state);
+    if (error) target.searchParams.set("error", error);
+    if (errDesc) target.searchParams.set("error_description", errDesc);
+
+    window.location.replace(target.toString());
+  }, [router]);
+
+  return (
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#061428", color: "#fff" }}>
+      <div>
+        <h1 style={{ marginBottom: 8 }}>Redirecting…</h1>
+        <p style={{ opacity: 0.8 }}>Sending you to the VDC demo</p>
+      </div>
+    </div>
+  );
+}

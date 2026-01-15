@@ -1,76 +1,29 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useState } from "react";
-import { buildLoginUrl } from "../lib/life_sciences_app_lib/auth";
 
-// Build the login URL via shared CONFIG (env-driven)
-const VDC_LOGIN_URL = buildLoginUrl();
-function CopyIconButton({ value, ariaLabel }) {
-  const [copied, setCopied] = useState(false);
-
-  async function onCopy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 900);
-    } catch (err) {}
-  }
-
-  return (
-    <>
-      <button type="button" onClick={onCopy} aria-label={ariaLabel} title={copied ? "Copied" : "Copy"} className="copyBtn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path d="M8 7V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          <path d="M5 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-        </svg>
-      </button>
-      <style jsx>{`
-        .copyBtn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: 8px;
-          border: 1px solid rgba(255,255,255,0.2);
-          background: rgba(15,23,42,0.4);
-          color: rgba(255,255,255,0.9);
-          cursor: pointer;
-          transition: background 0.2s;
-          margin-left: 6px;
-        }
-        .copyBtn:hover {
-          background: rgba(15,23,42,0.7);
-        }
-      `}</style>
-    </>
-  );
-}
+// Always start at demo-login. After login we route by role.
+const VDC_LOGIN_URL = "/life-sciences/app/demo-login?returnTo=%2Flife-sciences%2Fapp";
 
 export default function VDCDemoPage() {
-  const SUBMITTER_EMAIL = "williamoconnellpmp+submitter1@gmail.com";
-  const APPROVER_EMAIL = "williamoconnellpmp+approver1@gmail.com";
-  const PASSWORD = "Password123!";
-
   return (
     <>
       <Head>
         <title>VDC Demo - Validated Document Control</title>
-        <meta name="description" content="Validated Document Control demo on AWS"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <meta name="description" content="Validated Document Control demo on AWS" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <div className="page">
-        <div className="heroBg" aria-hidden="true"/>
-        
+        <div className="heroBg" aria-hidden="true" />
+
         <main className="mainContent">
           <div className="container">
             <nav className="breadcrumb">
               <Link href="/" className="breadcrumbLink">Home</Link>
               <span className="sep">|</span>
-              <Link href="/life-sciences/evidence/index.html" className="breadcrumbLink">Architecture &amp; GxP Evidence</Link>
+              <Link href="/life-sciences/evidence" className="breadcrumbLink">Architecture &amp; GxP Evidence</Link>
               <span className="sep">|</span>
-              <Link href="/life-sciences/resources/index.html" className="breadcrumbLink">Supporting Documentation</Link>
+              <Link href="/life-sciences/resources" className="breadcrumbLink">Supporting Documentation</Link>
             </nav>
 
             <section className="hero">
@@ -84,25 +37,18 @@ export default function VDCDemoPage() {
                   In regulated Life Sciences environments, teams must be able to show who performed an action, when it occurred, under which role, and what controls enforced it.
                 </p>
                 <p>
-                  This VDC demo is a working example using native AWS services. It demonstrates role-based access, MFA-enforced approvals, controlled document access, immutable audit trails, and electronic signature intent.
+                  This VDC demo is a working example using native AWS services. It demonstrates role-based access, controlled document access, immutable audit trails, and electronic signature intent.
                 </p>
 
                 <div className="credentials">
                   <p>
-                    <strong>How to use it:</strong> Sign in as Submitter: <span className="cred">{SUBMITTER_EMAIL}</span>
-                    <CopyIconButton value={SUBMITTER_EMAIL} ariaLabel="Copy email"/> Password: <span className="cred">{PASSWORD}</span>
-                    <CopyIconButton value={PASSWORD} ariaLabel="Copy password"/>
+                    <strong>Demo auth uses localStorage (Submitter/Approver/Admin).</strong> Please enter <strong>ANY</strong> user name and select the user you wish to perform the action as.
                   </p>
-                  <p>
-                    Then sign in as Approver: <span className="cred">{APPROVER_EMAIL}</span>
-                    <CopyIconButton value={APPROVER_EMAIL} ariaLabel="Copy email"/> Password: <span className="cred">{PASSWORD}</span>
-                    <CopyIconButton value={PASSWORD} ariaLabel="Copy password"/>
-                  </p>
-                  <p>Please sign out before switching users.</p>
+                  <p className="smallNote">(This is intentionally a demo-only login. No Hosted UI / PKCE / Cognito required.)</p>
                 </div>
 
                 <p className="techStack">
-                  Built on AWS using Cognito, API Gateway, Lambda, DynamoDB, S3, IAM, and CloudFormation.
+                  Built on AWS using API Gateway, Lambda, DynamoDB, S3, IAM, and CloudFormation.
                 </p>
               </div>
             </section>
@@ -111,16 +57,16 @@ export default function VDCDemoPage() {
               <div className="ctaContent">
                 <h2 className="ctaTitle">Want to see it in action?</h2>
                 <p className="ctaText">
-                  Open the demo, use the credentials above, run the Submitter to Approver flow, and sign out before changing users.
+                  Open the demo, choose a role (Submitter/Approver/Admin), run the workflow, and log out before switching roles.
                 </p>
               </div>
-              <a href={VDC_LOGIN_URL} target="_blank" rel="noopener noreferrer" className="ctaButton">
-                Go to the Demo ?
+              <a href={VDC_LOGIN_URL} className="ctaButton">
+                Go to the Demo
               </a>
             </section>
 
             <footer className="footer">
-              <Link href="/" className="footerLink">? Back to home</Link>
+              <Link href="/" className="footerLink">← Back to home</Link>
             </footer>
           </div>
         </main>
@@ -141,7 +87,7 @@ export default function VDCDemoPage() {
           .infoBox p { margin-bottom: 16px; line-height: 1.65; color: rgba(255,255,255,0.85); }
           .credentials { background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 18px; margin: 20px 0; }
           .credentials p { margin-bottom: 10px; line-height: 1.7; }
-          .cred { font-family: monospace; font-size: 0.9rem; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; }
+          .smallNote { margin: 0; font-size: 0.9rem; color: rgba(255,255,255,0.7); }
           .techStack { font-size: 0.88rem; color: rgba(255,255,255,0.6); font-style: italic; margin: 0; }
           .ctaSection { background: rgba(7,14,24,0.65); border: 1px solid rgba(255,255,255,0.14); border-radius: 16px; padding: 24px; display: flex; justify-content: space-between; align-items: center; gap: 24px; margin-top: 40px; }
           .ctaContent { flex: 1; }
