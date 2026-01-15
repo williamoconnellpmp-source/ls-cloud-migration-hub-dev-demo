@@ -21,8 +21,7 @@ export default function ApprovalDetailPage() {
   const [error, setError] = useState(null);
   const [status, setStatus] = useState(null);
 
-  const [decisionComment, setDecisionComment] = useState("");
-  const [signed, setSigned] = useState(false);
+  const [rejectionComment, setRejectionComment] = useState("");
 
   async function load() {
     setError(null);
@@ -34,8 +33,13 @@ export default function ApprovalDetailPage() {
       if (u.role !== "Approver") throw new Error("Approval actions are restricted to Approver role in demo mode.");
       if (!id) return;
 
-      const data = await apiFetch(`/documents/${encodeURIComponent(String(id))}`, { method: "GET" }, router);
-      setDoc(data || null);
+      const data = await apiFetch("/documents", { method: "GET" }, router);
+      const list = Array.isArray(data?.items) ? data.items : [];
+      const found = list.find((item) => item.documentId === id || item.id === id);
+      
+      if (!found) throw new Error("Document not found.");
+      
+      setDoc(found);
       setStatus(null);
     } catch (e) {
       setError(prettyErr(e));
@@ -72,43 +76,63 @@ export default function ApprovalDetailPage() {
     }
   }
 
-  async function decide(action) {
+  async function handleApprove() {
     setError(null);
 
     try {
       const u = getCurrentUser();
       if (!u) throw new Error("Not signed in.");
       if (u.role !== "Approver") throw new Error("Approval actions are restricted to Approver role in demo mode.");
-      if (!signed) throw new Error("E-signature required: please check the e-signature box before submitting.");
       if (!id) throw new Error("Missing document id.");
 
       setBusy(true);
-      setStatus(action === "approve" ? "Approving..." : "Rejecting...");
-
-      const path =
-        action === "approve"
-          ? `/approvals/${encodeURIComponent(String(id))}/approve`
-          : `/approvals/${encodeURIComponent(String(id))}/reject`;
+      setStatus("Approving...");
 
       await apiFetch(
-        path,
+        `/approvals/${encodeURIComponent(String(id))}/approve`,
+        { method: "POST" },
+        router
+      );
+
+      setStatus("Approved.");
+      router.push("/life-sciences/app/approval/approvals");
+    } catch (e) {
+      setError(prettyErr(e));
+      setStatus(null);
+      setBusy(false);
+    }
+  }
+
+  async function handleReject() {
+    setError(null);
+
+    try {
+      const u = getCurrentUser();
+      if (!u) throw new Error("Not signed in.");
+      if (u.role !== "Approver") throw new Error("Approval actions are restricted to Approver role in demo mode.");
+      if (!id) throw new Error("Missing document id.");
+      
+      const comment = rejectionComment.trim();
+      if (!comment) throw new Error("Rejection comment is required.");
+
+      setBusy(true);
+      setStatus("Rejecting...");
+
+      await apiFetch(
+        `/approvals/${encodeURIComponent(String(id))}/reject`,
         {
           method: "POST",
-          body: JSON.stringify({
-            documentId: String(id),
-            comment: (decisionComment || "").trim(),
-            eSignature: true,
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comment }),
         },
         router
       );
 
-      setStatus(action === "approve" ? "Approved." : "Rejected.");
-      setTimeout(() => router.push("/life-sciences/app/approval/approvals"), 800);
+      setStatus("Rejected.");
+      router.push("/life-sciences/app/approval/approvals");
     } catch (e) {
       setError(prettyErr(e));
       setStatus(null);
-    } finally {
       setBusy(false);
     }
   }
@@ -174,29 +198,21 @@ export default function ApprovalDetailPage() {
           <h2 style={{ marginTop: 0 }}>Decision</h2>
 
           <label style={{ display: "grid", gap: 6 }}>
-            Comment (optional)
+            Rejection comment (required)
             <textarea
-              value={decisionComment}
-              onChange={(e) => setDecisionComment(e.target.value)}
+              value={rejectionComment}
+              onChange={(e) => setRejectionComment(e.target.value)}
               rows={4}
-              placeholder="Optional: include a reason, reference, or note for the audit trail."
+              placeholder="Required for rejection: include a reason, reference, or note for the audit trail."
               disabled={busy}
-            />
-          </label>
-
-          <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-            <input type="checkbox" checked={signed} onChange={(e) => setSigned(e.target.checked)} disabled={busy} />
-            <span>
-              I certify this decision is accurate and I am authorized to approve/reject this controlled document
-              (demo e-signature).
-            </span>
+            ></textarea>
           </label>
 
           <div style={{ display: "flex", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
-            <button onClick={() => decide("approve")} disabled={busy} style={{ ...btn, fontWeight: 900 }}>
+            <button onClick={handleApprove} disabled={busy} style={{ ...btn, fontWeight: 900 }}>
               Approve
             </button>
-            <button onClick={() => decide("reject")} disabled={busy} style={{ ...btn, fontWeight: 900 }}>
+            <button onClick={handleReject} disabled={busy || !rejectionComment.trim()} style={{ ...btn, fontWeight: 900 }}>
               Reject
             </button>
           </div>

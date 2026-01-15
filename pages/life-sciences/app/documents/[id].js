@@ -118,9 +118,15 @@ export default function DocumentDetailsPage() {
           ← Back to Submissions
         </Link>
 
-        <button onClick={onDownload} disabled={!doc} style={btn}>
-          Download
-        </button>
+        {role === "approver" ? (
+          <button onClick={onDownload} disabled={!doc} style={btn}>
+            Download
+          </button>
+        ) : (
+          <span style={{ fontSize: 12, opacity: 0.6, alignSelf: "center", fontStyle: "italic" }}>
+            Download is available to Approvers only.
+          </span>
+        )}
 
         {doc?.status ? <span style={{ fontSize: 12, opacity: 0.75, alignSelf: "center" }}>Status: {doc.status}</span> : null}
         {role ? <span style={{ fontSize: 12, opacity: 0.75, alignSelf: "center" }}>Role: {role}</span> : null}
