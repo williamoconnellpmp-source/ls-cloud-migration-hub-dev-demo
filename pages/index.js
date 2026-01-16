@@ -68,8 +68,8 @@ export default function HomePage() {
           >
             <div className="cardsContainer">
               <div className="cardsGrid">
-                {/* 1 — VDC Demo */}
-                <Link href="/vdc/index.html" passHref legacyBehavior>
+                {/* 1 — VDC Demo (FIXED) */}
+                <Link href="/vdc" passHref legacyBehavior>
                   <a className="card">
                     <div className="cardTitle">VDC Demo</div>
                     <div className="cardText">
@@ -82,7 +82,7 @@ export default function HomePage() {
                 </Link>
 
                 {/* 2 — Regulated Delivery */}
-                <Link href="/life-sciences/evidence/index.html" passHref legacyBehavior>
+                <Link href="/life-sciences/evidence/" passHref legacyBehavior>
                   <a className="card">
                     <div className="cardTitle">Regulated Delivery</div>
                     <div className="cardText">GxP • 21 CFR Part 11 • CSV</div>
@@ -90,7 +90,7 @@ export default function HomePage() {
                   </a>
                 </Link>
 
-                {/* 3 — Empathy Filter (subdomain on Vercel) */}
+                {/* 3 — Empathy Filter */}
                 <a
                   href="https://empathy.williamoconnellpmp.com/about"
                   className="card"
@@ -108,7 +108,7 @@ export default function HomePage() {
                   role="group"
                   aria-label="Resume and external links"
                 >
-                  <Link href="/resume/index.html" passHref legacyBehavior>
+                  <Link href="/resume/" passHref legacyBehavior>
                     <a className="linkItem">Resume →</a>
                   </Link>
 
@@ -158,7 +158,6 @@ export default function HomePage() {
             z-index: 2;
           }
 
-          /* Header */
           .header {
             position: relative;
             z-index: 3;
@@ -187,7 +186,6 @@ export default function HomePage() {
             border-bottom-color: rgba(255, 255, 255, 0.7);
           }
 
-          /* Hero */
           .hero {
             position: relative;
             z-index: 2;
@@ -220,7 +218,7 @@ export default function HomePage() {
           .lead2 {
             font-size: 1.05rem;
             line-height: 1.6;
-            max-width: 95ch; /* widened so lines wrap less */
+            max-width: 95ch;
             color: rgba(255, 255, 255, 0.86);
           }
 
@@ -228,7 +226,6 @@ export default function HomePage() {
             margin-bottom: 10px;
           }
 
-          /* Cards */
           .cardsSection {
             position: relative;
             z-index: 2;
@@ -255,15 +252,12 @@ export default function HomePage() {
             border-radius: 16px;
             padding: 22px;
             min-height: 150px;
-
             text-decoration: none;
             color: #fff;
-
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-
             backdrop-filter: blur(10px);
             box-sizing: border-box;
           }
@@ -294,7 +288,6 @@ export default function HomePage() {
             text-align: center;
           }
 
-          /* Box 4 links only */
           .cardLinks {
             gap: 10px;
           }
@@ -331,4 +324,3 @@ export default function HomePage() {
     </>
   );
 }
-

@@ -10,10 +10,7 @@ function safeReturnTo(router) {
   if (typeof val !== "string") return "/life-sciences/app";
   if (!val.startsWith("/")) return "/life-sciences/app";
   if (val.startsWith("//")) return "/life-sciences/app";
-
-  // never allow returning to demo-login (prevents loops)
   if (val.startsWith("/life-sciences/app/demo-login")) return "/life-sciences/app";
-
   return val;
 }
 
@@ -23,21 +20,22 @@ export default function DemoLoginPage() {
   const [role, setRole] = useState("Submitter");
   const [mounted, setMounted] = useState(false);
 
-  const returnTo = useMemo(() => safeReturnTo(router), [router.isReady, router.query?.returnTo]);
+  const returnTo = useMemo(
+    () => safeReturnTo(router),
+    [router.isReady, router.query?.returnTo]
+  );
 
   useEffect(() => {
     if (!router.isReady) return;
     setMounted(true);
 
-    // If already logged in, go where we intended
     try {
       if (typeof window === "undefined") return;
       const u = getCurrentUser();
       if (u) {
-        // hard redirect prevents router thrash if something else is redirecting too
         window.location.assign(returnTo);
       }
-    } catch (e) {}
+    } catch {}
   }, [router.isReady, returnTo]);
 
   function onSubmit(e) {
@@ -52,17 +50,12 @@ export default function DemoLoginPage() {
 
     try {
       window.localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(session));
-    } catch (e) {}
-
-    // verify write (if storage blocked, this prevents "fake login")
-    try {
       const raw = window.localStorage.getItem(DEMO_SESSION_KEY);
       if (!raw) return;
-    } catch (e) {
+    } catch {
       return;
     }
 
-    // hard redirect is more reliable than router.push when loops exist
     window.location.assign(returnTo);
   }
 
@@ -76,8 +69,10 @@ export default function DemoLoginPage() {
       <div style={styles.page}>
         <div style={styles.card}>
           <h1 style={styles.h1}>VDC Demo Login</h1>
+
           <p style={styles.sub}>
-            Demo-only login (no Cognito). Enter any name and choose a role to simulate the workflow.
+            Demo-only login (no Cognito). Enter any name and choose a role to
+            simulate the workflow.
           </p>
 
           <form onSubmit={onSubmit}>
@@ -90,7 +85,11 @@ export default function DemoLoginPage() {
             />
 
             <label style={{ ...styles.label, marginTop: 14 }}>Role</label>
-            <select style={styles.input} value={role} onChange={(e) => setRole(e.target.value)}>
+            <select
+              style={styles.input}
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
               <option value="Submitter">Submitter</option>
               <option value="Approver">Approver</option>
             </select>
@@ -98,10 +97,6 @@ export default function DemoLoginPage() {
             <button type="submit" style={styles.button}>
               Enter Demo
             </button>
-
-            <div style={styles.meta}>
-              Session key: <code>{DEMO_SESSION_KEY}</code> (stored in localStorage)
-            </div>
           </form>
         </div>
       </div>
@@ -116,40 +111,54 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
-    background: "linear-gradient(180deg, rgba(5,10,20,1) 0%, rgba(10,20,35,1) 100%)",
-    color: "white",
+    background: "linear-gradient(180deg, #0b1220 0%, #16243f 100%)",
+    color: "#ffffff",
   },
   card: {
     width: "100%",
     maxWidth: 560,
-    borderRadius: 16,
-    padding: 24,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.12)",
-    boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+    borderRadius: 18,
+    padding: 28,
+    background: "rgba(20,30,55,0.65)",
+    border: "1px solid rgba(255,255,255,0.18)",
+    boxShadow: "0 25px 70px rgba(0,0,0,0.45)",
+    color: "#ffffff",
   },
-  h1: { margin: 0, fontSize: 28 },
-  sub: { marginTop: 10, opacity: 0.8, lineHeight: 1.5 },
-  label: { display: "block", marginTop: 12, marginBottom: 6, opacity: 0.9 },
+  h1: {
+    margin: 0,
+    fontSize: 30,
+    color: "#ffffff",
+  },
+  sub: {
+    marginTop: 10,
+    lineHeight: 1.6,
+    color: "rgba(255,255,255,0.9)",
+  },
+  label: {
+    display: "block",
+    marginTop: 12,
+    marginBottom: 6,
+    color: "rgba(255,255,255,0.95)",
+    fontWeight: 600,
+  },
   input: {
     width: "100%",
     padding: "12px 14px",
     borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(15,23,42,0.35)",
-    color: "white",
+    border: "1px solid rgba(255,255,255,0.25)",
+    background: "rgba(10,18,35,0.9)",
+    color: "#ffffff",
     outline: "none",
   },
   button: {
     width: "100%",
-    marginTop: 16,
+    marginTop: 18,
     padding: "12px 14px",
     borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.22)",
-    background: "rgba(255,255,255,0.14)",
-    color: "white",
-    fontWeight: 600,
+    border: "1px solid rgba(255,255,255,0.25)",
+    background: "linear-gradient(90deg, #6366f1, #8b5cf6)",
+    color: "#ffffff",
+    fontWeight: 700,
     cursor: "pointer",
   },
-  meta: { marginTop: 12, fontSize: 12, opacity: 0.75 },
 };
