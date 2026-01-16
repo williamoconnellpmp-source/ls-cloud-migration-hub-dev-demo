@@ -58,6 +58,7 @@ export default function EvidencePage() {
                   <Link href="/life-sciences/docs/functional-spec" className="cardLink">Functional Specification →</Link>
                   <Link href="/life-sciences/docs/traceability-matrix" className="cardLink">Traceability Matrix →</Link>
                   <Link href="/life-sciences/docs/iq-oq-pq" className="cardLink">IQ / OQ / PQ Results →</Link>
+                  <Link href="/life-sciences/docs/vdc-non-gxp-evidence" className="cardLink">Non-GxP Verification & Test Evidence (Demo) →</Link>
                 </div>
               </div>
 
