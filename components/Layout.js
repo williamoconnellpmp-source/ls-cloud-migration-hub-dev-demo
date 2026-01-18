@@ -10,7 +10,7 @@ export default function Layout({ title, subtitle, children }) {
               William O’Connell
             </Link>
             <div className="brandSub">
-              AWS Technical Program Manager • Life Sciences Cloud
+              Technical Program Manager (AWS SSA) • Life Sciences Cloud
             </div>
           </div>
 

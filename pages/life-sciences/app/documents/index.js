@@ -1,148 +1,145 @@
-// pages/life-sciences/app/documents/index.js
-
-import { useEffect, useState } from "react";
+import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { apiFetch } from "../../../../lib/life_sciences_app_lib/api";
-import { requireAuthOrRedirect } from "../../../../lib/life_sciences_app_lib/auth";
+import { useEffect } from "react";
+import {
+  requireAuthOrRedirect,
+  getCurrentUser,
+} from "@/lib/life_sciences_app_lib/auth";
 
-function prettyErr(e) {
-  if (!e) return null;
-  if (typeof e === "string") return e;
-  return e?.message || "Request failed.";
-}
-
-function filenameFromItem(it) {
-  return it?.filename || it?.originalFilename || it?.key || "document";
-}
-
-export default function DocumentsIndexPage() {
+export default function OverviewPage() {
   const router = useRouter();
-  const [items, setItems] = useState([]);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState(null);
-  const [search, setSearch] = useState("");
-
-  async function load() {
-    setBusy(true);
-    setError(null);
-
-    try {
-      const data = await apiFetch("/documents", { method: "GET" }, router);
-      const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-      setItems(list);
-    } catch (e) {
-      setError(prettyErr(e));
-      setItems([]);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const user = getCurrentUser();
 
   useEffect(() => {
-    const ok = requireAuthOrRedirect(router, "/life-sciences/app/documents");
-    if (!ok) return;
+    requireAuthOrRedirect(router, "/life-sciences/app");
+  }, [router]);
 
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  if (!user) return null;
 
   return (
-    <div>
-      <h1>Documents</h1>
-      <div style={{ fontSize: 15, margin: "10px 0 16px 0", color: "#1a3a7c", fontWeight: 600 }}>
-        SOP Note: Document records may be searched, sorted, and filtered by metadata including Document Title, Submitter, Status, and key lifecycle dates. All actions are recorded in the audit trail.
-      </div>
-      <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 18, background: "white" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by Document Title, Submitter, Status, or Date..."
-            style={{ minWidth: 220, padding: "8px 10px", borderRadius: 8, border: "1px solid #ddd", fontSize: 15 }}
-            disabled={busy}
-          />
-          <button
-            onClick={load}
-            disabled={busy}
-            style={{ padding: "10px 12px", borderRadius: 10, border: "1px solid #ddd", background: "white", cursor: "pointer" }}
-          >
-            Refresh
-          </button>
-        </div>
+    <>
+      <Head>
+        <title>VDC Demo – Overview</title>
+      </Head>
 
-        {error && (
-          <div style={{ marginTop: 14, border: "1px solid #cc0000", color: "#990000", padding: "0.75rem" }}>
-            <strong>Error:</strong> {error}
+      <div className="page">
+        <div className="heroBg" />
+
+        <main className="container">
+          <h1>Overview</h1>
+
+          <p className="subtitle">
+            Validated Document Control demo workspace. All timestamps are
+            recorded in UTC.
+          </p>
+
+          <div className="card">
+            <strong>Signed in as:</strong> {user.displayName} ({user.role})
           </div>
-        )}
 
-        {busy ? (
-          <div style={{ marginTop: 14, opacity: 0.8 }}>Loading...</div>
-        ) : items.length === 0 ? (
-          <div style={{ marginTop: 14, opacity: 0.8 }}>No documents found.</div>
-        ) : (
-          <div style={{ marginTop: 14, display: "grid", gap: 12 }}>
-            {items
-              .filter((it) => {
-                const id = it.documentId || it.id || "";
-                const title = (it.title || "").toLowerCase();
-                const submitter = (it.submittedBy || it.submittedByEmail || it.ownerUsername || it.ownerEmail || "").toLowerCase();
-                const status = (it.status || "").toLowerCase();
-                // Add date fields to search
-                const submittedDate = (it.submittedAtDisplay || it.submittedAt || "").toLowerCase();
-                const approvedDate = (it.approvedAtDisplay || it.approvedAt || "").toLowerCase();
-                const q = (search || "").toLowerCase();
-                return (
-                  !q ||
-                  title.includes(q) ||
-                  submitter.includes(q) ||
-                  status.includes(q) ||
-                  submittedDate.includes(q) ||
-                  approvedDate.includes(q) ||
-                  id.includes(q)
-                );
-              })
-              .map((it) => {
-                const id = it.documentId || it.id;
-                return (
-                  <div key={id} style={{ border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                      <div style={{ fontWeight: 800 }}>{it.title || filenameFromItem(it)}</div>
-                      <div style={{ fontFamily: "monospace", fontSize: 12, opacity: 0.75 }}>{id}</div>
-                    </div>
-
-                    {it.status ? (
-                      <div style={{ marginTop: 8, opacity: 0.8, fontSize: 13 }}>Status: {it.status}</div>
-                    ) : null}
-
-                    <div style={{ marginTop: 10, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <Link href={`/life-sciences/app/documents/${encodeURIComponent(id)}`} style={linkBtn}>
-                        View
-                      </Link>
-
-                      <Link href={`/life-sciences/app/approval/${encodeURIComponent(id)}`} style={linkBtn}>
-                        Approve / Reject
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="grid">
+            <NavCard title="Upload Document" href="/life-sciences/app/upload" />
+            <NavCard title="Your Submissions" href="/life-sciences/app/submissions" />
+            <NavCard title="Document Register" href="/life-sciences/app/documents" />
+            <NavCard
+              title="Pending Approvals"
+              href="/life-sciences/app/approval/approvals"
+              disabled={user.role !== "Approver"}
+            />
           </div>
-        )}
+        </main>
       </div>
-    </div>
+
+      <style jsx>{`
+        .page {
+          min-height: 100vh;
+          background: #061428;
+          color: #fff;
+          position: relative;
+        }
+
+        .heroBg {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            180deg,
+            rgba(5, 12, 22, 0.96),
+            rgba(5, 12, 22, 0.75)
+          );
+        }
+
+        .container {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 48px 22px;
+          position: relative;
+          z-index: 2;
+        }
+
+        h1 {
+          margin-bottom: 6px;
+        }
+
+        .subtitle {
+          color: rgba(255, 255, 255, 0.75);
+          margin-bottom: 28px;
+        }
+
+        .card {
+          background: rgba(10, 18, 35, 0.7);
+          padding: 14px 18px;
+          border-radius: 10px;
+          margin-bottom: 28px;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 16px;
+        }
+      `}</style>
+    </>
   );
 }
 
-const linkBtn = {
-  display: "inline-block",
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid #ddd",
-  background: "white",
-  color: "#111",
-  textDecoration: "none",
-  fontWeight: 800,
-};
+function NavCard({ title, href, disabled }) {
+  if (disabled) {
+    return (
+      <div className="navcard disabled">
+        {title}
+        <style jsx>{`
+          .navcard {
+            padding: 22px;
+            border-radius: 14px;
+            background: rgba(20, 30, 55, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.4);
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <Link href={href} className="navcard">
+      {title}
+      <style jsx>{`
+        .navcard {
+          padding: 22px;
+          border-radius: 14px;
+          background: rgba(20, 30, 55, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #fff;
+          text-decoration: none;
+          font-weight: 600;
+        }
+
+        .navcard:hover {
+          background: rgba(30, 45, 80, 0.8);
+        }
+      `}</style>
+    </Link>
+  );
+}

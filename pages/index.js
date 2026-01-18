@@ -9,7 +9,7 @@ export default function HomePage() {
         <title>William O’Connell | AWS TPM | Life Sciences Cloud</title>
         <meta
           name="description"
-          content="AWS Technical Program Manager focused on regulated Life Sciences cloud delivery. GxP / 21 CFR Part 11 background. 14 years Roche / Genentech. AWS Certified Solutions Architect."
+          content="Technical Program Manager (AWS SSA) focused on regulated Life Sciences cloud delivery. GxP / 21 CFR Part 11 background. 14 years Roche / Genentech. AWS Certified Solutions Architect."
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -43,7 +43,7 @@ export default function HomePage() {
           <section className="hero">
             <div className="container">
               <h1 className="h1">
-                <span className="h1Line1">AWS Technical Program Manager</span>
+                <span className="h1Line1">Technical Program Manager (AWS SSA)</span>
                 <span className="h1Line2">
                   Life Sciences Cloud Transformations
                 </span>

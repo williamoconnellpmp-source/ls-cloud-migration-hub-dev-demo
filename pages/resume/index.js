@@ -9,7 +9,7 @@ export default function ResumePage() {
         <title>Resume - William O&apos;Connell | AWS TPM</title>
         <meta
           name="description"
-          content="William O'Connell - AWS Technical Program Manager specializing in Life Sciences cloud transformations"
+          content="William O'Connell - Technical Program Manager specializing in Life Sciences cloud transformations"
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
@@ -60,7 +60,7 @@ export default function ResumePage() {
                 </h1>
 
                 <p className="subtitle">
-                  AWS Technical Program Manager specializing in regulated,
+                  Technical Program Manager (AWS SSA) specializing in regulated,
                   cross-functional cloud migration programs with audit-ready
                   evidence and GxP compliance.
                 </p>

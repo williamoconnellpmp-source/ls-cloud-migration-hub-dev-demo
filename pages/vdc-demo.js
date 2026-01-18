@@ -67,7 +67,7 @@ export default function VdcDemoAppPage() {
                 <div className="card">
                   <h2>Overview</h2>
                   <ul>
-                    <li>Role-based actions (Submitter / Approver / Admin)</li>
+                    <li>Role-based actions (Submitter or Approver)</li>
                     <li>Audit trail intent (who/what/when)</li>
                     <li>Document lifecycle: draft → submitted → approved/rejected</li>
                   </ul>
