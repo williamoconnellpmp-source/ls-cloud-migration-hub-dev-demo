@@ -5,7 +5,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { apiFetch } from "@/lib/life_sciences_app_lib/api";
-import { getCurrentUser, requireAuthOrRedirect, logout } from "@/lib/life_sciences_app_lib/auth";
+import {
+  getCurrentUser,
+  requireAuthOrRedirect,
+  logout,
+} from "@/lib/life_sciences_app_lib/auth";
+import { formatUtcTimestamp, uuidToFriendlyLabel } from "@/lib/life_sciences_app_lib/utils";
 
 function normalizeText(x) {
   return String(x || "").toLowerCase();
@@ -25,49 +30,134 @@ function filenameFromKey(s3Key) {
   return parts[parts.length - 1] || "—";
 }
 
+function looksLikeUuid(s) {
+  if (!s || typeof s !== "string") return false;
+  if (s.includes("@")) return false;
+  const t = s.trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) return true;
+  if (/^[0-9a-f]{8}-[0-9a-f]+\.\.\.[0-9a-f]{12}$/i.test(t)) return true;
+  if (t.length >= 20 && t.length <= 40 && /^[0-9a-f-.]+$/i.test(t)) return true;
+  return false;
+}
+
+function emailToFriendlyLabel(email) {
+  if (!email || typeof email !== "string") return null;
+  const lower = email.toLowerCase();
+  if (lower.includes("submitter1")) return "Submitter 1";
+  if (lower.includes("submitter2")) return "Submitter 2";
+  if (lower.includes("approver1")) return "Approver 1";
+  if (lower.includes("approver2")) return "Approver 2";
+  return email;
+}
+
 // Best-effort “submitted by” display (order matters)
 function pickSubmittedBy(it) {
-  return (
+  // First try display names and emails (human-readable)
+  const humanReadable =
     it?.submittedByDisplayName ||
     it?.submittedByName ||
     it?.submittedByEmail ||
-    it?.submittedBy ||
     it?.ownerDisplayName ||
     it?.ownerName ||
-    it?.ownerEmail ||
-    it?.ownerUsername ||
-    it?.ownerUserId ||
-    it?.submittedBySub ||
-    "—"
-  );
+    it?.ownerEmail;
+
+  if (humanReadable) {
+    const label = emailToFriendlyLabel(humanReadable);
+    return label || humanReadable;
+  }
+
+  const uuidLabel = uuidToFriendlyLabel(it?.submittedBy || it?.submittedBySub);
+  if (uuidLabel) return uuidLabel;
+
+  const username = it?.ownerUsername;
+  if (username && !looksLikeUuid(username)) return username;
+
+  const submittedBy = it?.submittedBy;
+  if (looksLikeUuid(submittedBy)) return "Submitter";
+  if (submittedBy && typeof submittedBy === "string" && submittedBy.length > 30 && !submittedBy.includes("@")) {
+    return "Submitter";
+  }
+  if (submittedBy && typeof submittedBy === "string" && submittedBy.length < 30 && !looksLikeUuid(submittedBy)) {
+    return submittedBy;
+  }
+
+  const submittedBySub = it?.submittedBySub;
+  if (submittedBySub && typeof submittedBySub === "string" && submittedBySub.includes("@")) {
+    return emailToFriendlyLabel(submittedBySub) || submittedBySub;
+  }
+  if (looksLikeUuid(submittedBySub)) return "Submitter";
+
+  return "—";
 }
 
 // Used for filtering “my submissions”
 function matchesCurrentUser(it, u) {
   if (!u) return false;
 
-  const me = normalizeText(u.displayName);
+  // Get user identifiers (normalized)
+  const userSub = normalizeText(u.sub || "");
+  const userEmail = normalizeText(u.email || "");
+  const userDisplayName = normalizeText(u.displayName || "");
+  const userUsername = normalizeText(u.username || u.email || "");
 
-  const candidates = [
-    it?.ownerDisplayName,
-    it?.ownerName,
-    it?.ownerUsername,
-    it?.ownerEmail,
-    it?.ownerUserId,
+  // Check exact matches first (most reliable)
+  // 1. Match by Cognito sub (UUID) - most reliable
+  if (userSub && userSub.length > 10) { // Only check if sub looks valid (not empty string)
+    const docOwnerSub = normalizeText(it?.ownerUserId || "");
+    const docSubmittedSub = normalizeText(it?.submittedBySub || "");
+    // Debug: log first few matches to console (remove in production)
+    if (userSub === docOwnerSub || userSub === docSubmittedSub) {
+      return true;
+    }
+  }
 
-    it?.submittedByDisplayName,
-    it?.submittedByName,
-    it?.submittedBy,
-    it?.submittedByEmail,
-    it?.submittedBySub,
-  ]
-    .filter(Boolean)
-    .map(normalizeText);
+  // 2. Match by email - very reliable
+  if (userEmail) {
+    const docOwnerEmail = normalizeText(it?.ownerEmail || "");
+    const docSubmittedEmail = normalizeText(it?.submittedByEmail || "");
+    const docSubmittedBy = normalizeText(it?.submittedBy || "");
+    if (userEmail === docOwnerEmail || 
+        userEmail === docSubmittedEmail || 
+        (docSubmittedBy && docSubmittedBy.includes("@") && userEmail === docSubmittedBy)) {
+      return true;
+    }
+  }
 
-  if (candidates.includes(me)) return true;
+  // 3. Match by username/displayName (for demo users like "Submitter 1")
+  if (userDisplayName || userUsername) {
+    const candidates = [
+      it?.ownerDisplayName,
+      it?.ownerName,
+      it?.ownerUsername,
+      it?.submittedByDisplayName,
+      it?.submittedByName,
+      it?.submittedBy, // Only if it's not a UUID
+    ]
+      .filter(Boolean)
+      .map(normalizeText);
 
-  // Demo-friendly fallback (still safe enough for demo mode)
-  return candidates.some((c) => c.includes(me) || me.includes(c));
+    // Exact match
+    if (candidates.includes(userDisplayName) || candidates.includes(userUsername)) {
+      return true;
+    }
+
+    // Partial match for demo-friendly labels (e.g., "submitter1" in email matches "Submitter 1")
+    const me = userDisplayName || userUsername;
+    if (me && candidates.some((c) => {
+      // Check if candidate contains user identifier or vice versa
+      if (c.includes(me) || me.includes(c)) return true;
+      // Handle "Submitter 1" vs "submitter1@example.com"
+      if (me.includes("submitter1") && c.includes("submitter 1")) return true;
+      if (me.includes("submitter2") && c.includes("submitter 2")) return true;
+      if (me.includes("approver1") && c.includes("approver 1")) return true;
+      if (me.includes("approver2") && c.includes("approver 2")) return true;
+      return false;
+    })) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function StatusPill({ status }) {
@@ -148,13 +238,22 @@ export default function SubmissionsPage() {
   const [rowBusyId, setRowBusyId] = useState(null);
   const [rowMsg, setRowMsg] = useState(null);
 
+  // Nav gating message (Submitter clicking Pending Approvals)
+  const [navMsg, setNavMsg] = useState(null);
+
+  const roleLower = String(user?.role || "").toLowerCase();
+  const isApprover = roleLower === "approver";
+
   useEffect(() => {
     const ok = requireAuthOrRedirect(router, "/life-sciences/app/submissions");
     if (!ok) return;
 
     const u = getCurrentUser();
     if (u?.displayName || u?.role) {
-      setUser({ displayName: u.displayName || "Demo User", role: u.role || "—" });
+      setUser({
+        displayName: u.displayName || "Demo User",
+        role: u.role || "—",
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -178,18 +277,88 @@ export default function SubmissionsPage() {
         ? data
         : [];
 
+      // Debug: Log user info and document count
+      console.log("🔍 [Submissions] DEBUG START ========================================");
+      console.log("[Submissions] User info:", {
+        sub: u?.sub,
+        email: u?.email,
+        displayName: u?.displayName,
+        role: u?.role,
+        username: u?.username
+      });
+      console.log("[Submissions] Total documents from API:", list.length);
+
+      // Exclude DRAFT - submissions page shows only submitted/approved/rejected
+      const noDraft = list.filter(
+        (it) => String(it?.status || "").toUpperCase() !== "DRAFT"
+      );
+
+      console.log("[Submissions] Documents after removing DRAFT:", noDraft.length);
+
       // Requirement:
-      // - Approver/Admin sees ALL submissions
+      // - Approver sees ALL submissions
       // - Submitter sees only their own
       const scoped =
-        u.role === "Approver" || u.role === "Admin"
-          ? list
-          : list.filter((it) => matchesCurrentUser(it, u));
+        u.role === "Approver"
+          ? noDraft
+          : noDraft.filter((it) => {
+              const matches = matchesCurrentUser(it, u);
+              // Debug: log first few non-matches to help diagnose
+              if (!matches && noDraft.indexOf(it) < 5) {
+                console.log("[Submissions] Document NOT matched:", {
+                  docId: it?.documentId,
+                  title: it?.title,
+                  ownerUserId: it?.ownerUserId,
+                  submittedBySub: it?.submittedBySub,
+                  ownerEmail: it?.ownerEmail,
+                  submittedByEmail: it?.submittedByEmail,
+                  submittedBy: it?.submittedBy,
+                  ownerUsername: it?.ownerUsername,
+                  userSub: u?.sub,
+                  userEmail: u?.email,
+                  userDisplayName: u?.displayName
+                });
+              }
+              // Debug: log first few matches to verify matching works
+              if (matches && noDraft.indexOf(it) < 3) {
+                console.log("[Submissions] Document MATCHED:", {
+                  docId: it?.documentId,
+                  title: it?.title,
+                  ownerUserId: it?.ownerUserId,
+                  submittedBySub: it?.submittedBySub
+                });
+              }
+              return matches;
+            });
 
-      // Sort newest first
+      console.log("[Submissions] Final filtered count:", scoped.length);
+      console.log("🔍 [Submissions] DEBUG END ========================================");
+      
+      // Alert if mismatch detected
+      if (u.role === "Submitter" && scoped.length < noDraft.length && scoped.length < 10) {
+        console.warn(`⚠️ [Submissions] WARNING: Only ${scoped.length} documents matched out of ${noDraft.length} total. User sub: ${u?.sub}`);
+      }
+
+      // Sort: SUBMITTED first, then APPROVED, then REJECTED; within each group, newest first
+      const statusOrder = { SUBMITTED: 0, APPROVED: 1, REJECTED: 2 };
       const sorted = [...scoped].sort((a, b) => {
-        const ta = a?.submittedAt || a?.lastActionAt || a?.createdAt || a?.updatedAt || "";
-        const tb = b?.submittedAt || b?.lastActionAt || b?.createdAt || b?.updatedAt || "";
+        const sa = String(a?.status || "").toUpperCase();
+        const sb = String(b?.status || "").toUpperCase();
+        const ra = statusOrder[sa] ?? 99;
+        const rb = statusOrder[sb] ?? 99;
+        if (ra !== rb) return ra - rb;
+        const ta =
+          a?.submittedAt ||
+          a?.lastActionAt ||
+          a?.createdAt ||
+          a?.updatedAt ||
+          "";
+        const tb =
+          b?.submittedAt ||
+          b?.lastActionAt ||
+          b?.createdAt ||
+          b?.updatedAt ||
+          "";
         return String(tb).localeCompare(String(ta));
       });
 
@@ -229,7 +398,7 @@ export default function SubmissionsPage() {
     });
   }, [items, q]);
 
-  async function openFileFor(documentId) {
+  async function viewDocumentFor(documentId) {
     setRowMsg(null);
     setError(null);
     setRowBusyId(documentId);
@@ -237,7 +406,7 @@ export default function SubmissionsPage() {
     try {
       setRowMsg("Generating controlled download link…");
       const data = await apiFetch(
-        `/documents/${encodeURIComponent(String(documentId))}/download`,
+        `/documents/${encodeURIComponent(String(documentId))}/download?disposition=inline`,
         { method: "GET" },
         router
       );
@@ -253,6 +422,13 @@ export default function SubmissionsPage() {
     } finally {
       setRowBusyId(null);
     }
+  }
+
+  function onClickPendingApprovals(e) {
+    if (isApprover) return;
+    e.preventDefault();
+    setNavMsg("Pending Approvals is available to Approvers only.");
+    setTimeout(() => setNavMsg(null), 2500);
   }
 
   return (
@@ -288,7 +464,7 @@ export default function SubmissionsPage() {
 
         {/* App nav + user strip (standard) */}
         <div className="navWrap">
-          <nav className="appNav">
+          <nav className="appNav" aria-label="VDC demo navigation">
             <div className="navLeft">
               <Link href="/life-sciences/app" className="navLink">
                 Overview
@@ -296,13 +472,23 @@ export default function SubmissionsPage() {
               <Link href="/life-sciences/app/upload" className="navLink">
                 Upload
               </Link>
-              <Link href="/life-sciences/app/submissions" className="navLink active">
+              <Link
+                href="/life-sciences/app/submissions"
+                className="navLink active"
+              >
                 Submissions
               </Link>
               <Link href="/life-sciences/app/documents" className="navLink">
                 Documents
               </Link>
-              <Link href="/life-sciences/app/approval/approvals" className="navLink">
+
+              {/* Your requested behavior: show link, but block Submitter and show message */}
+              <Link
+                href="/life-sciences/app/approval/approvals"
+                className={`navLink ${isApprover ? "" : "disabledNav"}`}
+                aria-disabled={!isApprover}
+                onClick={onClickPendingApprovals}
+              >
                 Pending Approvals
               </Link>
             </div>
@@ -310,18 +496,24 @@ export default function SubmissionsPage() {
             <div className="navRight">
               <div className="userName">{user.displayName || "Demo User"}</div>
               <div className="rolePill">{String(user.role || "—")}</div>
-              <button className="logoutBtn" onClick={() => logout(router)} type="button">
+              <button
+                className="logoutBtn"
+                onClick={() => logout(router)}
+                type="button"
+              >
                 Logout
               </button>
             </div>
           </nav>
+
+          {navMsg ? <div className="navMsg">{navMsg}</div> : null}
         </div>
 
         <main className="content">
           <h1 className="h1">Submissions</h1>
 
           <div className="subtitle">
-            {(user.role === "Approver" || user.role === "Admin"
+            {(user.role === "Approver"
               ? "All submitted documents in the demo workspace. Status changes are reflected in the register and pending approvals queue."
               : "Documents submitted by the current demo user. Status changes are reflected in the register and pending approvals queue.") +
               " All timestamps are recorded and displayed as UTC."}
@@ -331,10 +523,13 @@ export default function SubmissionsPage() {
             <div className="panelHead">
               <div>
                 <div className="panelTitle">
-                  {user.role === "Approver" || user.role === "Admin" ? "All submissions" : "Your submissions"}
+                  {user.role === "Approver"
+                    ? "All submissions"
+                    : "Your submissions"}
                 </div>
                 <div className="panelSub">
-                  Tip: <strong>SUBMITTED</strong> means the document should appear in <strong>Pending Approvals</strong>.
+                  Tip: <strong>SUBMITTED</strong> means the document should appear
+                  in <strong>Pending Approvals</strong>.
                 </div>
               </div>
 
@@ -346,7 +541,12 @@ export default function SubmissionsPage() {
                   placeholder="Search by name, submitter, id, status, hash, or UTC timestamp…"
                   disabled={busy}
                 />
-                <button className="ghostBtn" type="button" onClick={load} disabled={busy}>
+                <button
+                  className="ghostBtn"
+                  type="button"
+                  onClick={load}
+                  disabled={busy}
+                >
                   Refresh
                 </button>
               </div>
@@ -364,7 +564,8 @@ export default function SubmissionsPage() {
               <div className="errorBox">
                 <strong>Problem:</strong> {error}
                 <div className="errorHint">
-                  Confirm API Gateway has <code>GET /documents</code> wired correctly and returning <code>items</code>.
+                  Confirm API Gateway has <code>GET /documents</code> wired
+                  correctly and returning <code>items</code>.
                 </div>
               </div>
             ) : null}
@@ -372,7 +573,7 @@ export default function SubmissionsPage() {
             {!busy && !error && filtered.length === 0 ? (
               <div className="muted" style={{ marginTop: 12 }}>
                 No submissions found.
-                {user.role === "Approver" || user.role === "Admin"
+                {user.role === "Approver"
                   ? " Submit a document from Upload to create more test data."
                   : " Go to Upload to submit a document."}
               </div>
@@ -398,15 +599,19 @@ export default function SubmissionsPage() {
                       const title = it?.title || "Untitled";
                       const filename = it?.filename || filenameFromKey(it?.s3Key);
                       const submittedBy = pickSubmittedBy(it);
-                      const submittedAt = it?.submittedAt || it?.createdAt || "—";
+                      const submittedAtRaw = it?.submittedAt || it?.createdAt;
+                      const submittedAt = submittedAtRaw ? formatUtcTimestamp(submittedAtRaw) : "—";
                       const status = String(it?.status || "").toUpperCase();
 
                       return (
                         <tr key={String(id)}>
-                          <td className="cellDoc">
+                          <td className="cellDoc cellWrap">
                             <div className="docTitle">{title}</div>
                             <div className="docMeta">
-                              Document ID: <span className="mono">{truncateMiddle(id, 46)}</span>
+                              Document ID:{" "}
+                              <span className="mono">
+                                {truncateMiddle(id, 46)}
+                              </span>
                             </div>
                           </td>
 
@@ -415,7 +620,9 @@ export default function SubmissionsPage() {
                           </td>
 
                           <td className="cellWrap">
-                            <span className="wrapAny">{truncateMiddle(submittedBy, 42)}</span>
+                            <span className="wrapAny">
+                              {truncateMiddle(submittedBy, 42)}
+                            </span>
                           </td>
 
                           <td className="cellWrap">
@@ -430,22 +637,21 @@ export default function SubmissionsPage() {
                             <div className="actions">
                               <Button
                                 type="button"
-                                onClick={() => openFileFor(id)}
+                                onClick={() => viewDocumentFor(id)}
                                 disabled={rowBusyId === id}
                                 style={{ padding: "0.45rem 0.75rem" }}
                               >
-                                Open file
+                                View Document
                               </Button>
 
-                              <Link className="link" href={`/life-sciences/app/documents/${encodeURIComponent(String(id))}`}>
-                                View
+                              <Link
+                                className="link"
+                                href={`/life-sciences/app/documents/${encodeURIComponent(
+                                  String(id)
+                                )}`}
+                              >
+                                Audit Trail
                               </Link>
-
-                              {(user.role === "Approver" || user.role === "Admin") && status === "SUBMITTED" ? (
-                                <Link className="link" href={`/life-sciences/app/approval/${encodeURIComponent(String(id))}`}>
-                                  Review
-                                </Link>
-                              ) : null}
                             </div>
                           </td>
                         </tr>
@@ -463,7 +669,11 @@ export default function SubmissionsPage() {
         .page {
           min-height: 100vh;
           position: relative;
-          background: radial-gradient(1100px 520px at 40% 18%, rgba(31, 83, 167, 0.22), rgba(0, 0, 0, 0)),
+          background: radial-gradient(
+              1100px 520px at 40% 18%,
+              rgba(31, 83, 167, 0.22),
+              rgba(0, 0, 0, 0)
+            ),
             linear-gradient(180deg, #050b14 0%, #071427 55%, #061326 100%);
           color: #fff;
         }
@@ -480,7 +690,7 @@ export default function SubmissionsPage() {
           z-index: 50;
           background: rgba(0, 0, 0, 0.35);
           backdrop-filter: blur(8px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .headerContainer {
@@ -559,6 +769,11 @@ export default function SubmissionsPage() {
           text-underline-offset: 6px;
         }
 
+        .disabledNav {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
         .navRight {
           display: flex;
           align-items: center;
@@ -578,6 +793,7 @@ export default function SubmissionsPage() {
           background: rgba(30, 60, 140, 0.35);
           font-weight: 900;
           color: #fff;
+          white-space: nowrap;
         }
 
         .logoutBtn {
@@ -592,6 +808,16 @@ export default function SubmissionsPage() {
 
         .logoutBtn:hover {
           background: rgba(255, 255, 255, 0.1);
+        }
+
+        .navMsg {
+          margin-top: 10px;
+          padding: 10px 12px;
+          border-radius: 14px;
+          border: 1px solid rgba(99, 132, 255, 0.35);
+          background: rgba(99, 132, 255, 0.12);
+          font-weight: 900;
+          color: #fff;
         }
 
         .content {
@@ -712,7 +938,7 @@ export default function SubmissionsPage() {
 
         .tableWrap {
           margin-top: 14px;
-          overflow: hidden; /* no sideways scrolling */
+          overflow: hidden;
           border-radius: 16px;
           border: 1px solid rgba(255, 255, 255, 0.12);
           background: rgba(6, 12, 28, 0.35);
@@ -721,7 +947,7 @@ export default function SubmissionsPage() {
         .table {
           width: 100%;
           border-collapse: collapse;
-          table-layout: fixed; /* forces fit */
+          table-layout: fixed;
         }
 
         th,
@@ -772,7 +998,8 @@ export default function SubmissionsPage() {
         }
 
         .mono {
-          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+            "Liberation Mono", "Courier New", monospace;
         }
 
         .wrapAny {
@@ -780,11 +1007,16 @@ export default function SubmissionsPage() {
           word-break: break-word;
         }
 
+        .cellFile {
+          min-width: 0;
+          max-width: 100%;
+        }
+
         .actions {
           display: flex;
           flex-direction: column;
           gap: 8px;
-          align-items: flex-start;
+          align-items: center;
         }
 
         .link {
@@ -810,7 +1042,6 @@ export default function SubmissionsPage() {
         }
 
         @media (max-width: 720px) {
-          /* Hide UTC column on small screens */
           .colWhen,
           td:nth-child(4) {
             display: none;
